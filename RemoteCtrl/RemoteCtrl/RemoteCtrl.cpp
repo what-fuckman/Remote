@@ -30,7 +30,7 @@ int main()
             // TODO: 在此处为应用程序的行为编写代码。
             wprintf(L"错误: MFC 初始化失败\n");
             nRetCode = 1;
-        }
+        }   
         else
         {
             // TODO: 在此处为应用程序的行为编写代码。
