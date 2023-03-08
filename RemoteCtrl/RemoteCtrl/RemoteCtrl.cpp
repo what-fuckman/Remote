@@ -6,6 +6,7 @@
 #include "RemoteCtrl.h"
 #include "SeverSocket.h"
 #include <direct.h> //查分区
+#include <atlimage.h>
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -254,6 +255,46 @@ int MouseEvent()
     }
     return 0;
 }
+
+int SendScreen()
+{
+    CImage screen;//GDI
+    HDC hScreen=::GetDC(NULL);//获取设备上下文
+    int nBitPerPixel = GetDeviceCaps(hScreen, BITSPIXEL);//24 argb88832
+    int nWidth = GetDeviceCaps(hScreen, HORZRES);
+    int nheight = GetDeviceCaps(hScreen, VERTRES);
+    screen.Create(nWidth, nheight, nBitPerPixel);
+    BitBlt(screen.GetDC(), 0, 0, 2256, 1504, hScreen, 0, 0, SRCCOPY);
+    ReleaseDC(NULL, hScreen);
+    HGLOBAL hMem=GlobalAlloc(GMEM_MOVEABLE, 0);
+    if (hMem == NULL)return -1;
+    IStream* pStream = NULL;
+    HRESULT ret =CreateStreamOnHGlobal(hMem, TRUE, &pStream);
+    if (ret = S_OK)
+    {   
+        screen.Save(pStream, Gdiplus::ImageFormatPNG);
+        LARGE_INTEGER bg = { 0 };
+        pStream->Seek(bg, STREAM_SEEK_SET, NULL);
+        PBYTE pData =(PBYTE)GlobalLock(hMem);
+        SIZE_T nSize = GlobalSize(hMem);
+        CPacket pack(6, NULL, nSize);
+        CServerSocket::getInstance()->Send(pack);
+        GlobalUnlock(hMem);
+        
+    }
+  
+    /*DWORD tick = GetTickCount();
+    TRACE("png %d\r\n", GetTickCount() - tick);
+    screen.Save(_T("test2023.png"), Gdiplus::ImageFormatPNG);
+    DWORD tick = GetTickCount();
+    screen.Save(_T("test2023.jpg"), Gdiplus::ImageFormatJPEG);
+    TRACE("jpg %d\r\n", GetTickCount() - tick)*/;
+    pStream->Release();
+    GlobalFree(hMem);
+    screen.ReleaseDC();
+    
+    return 0;
+}
 int main()
 {
     int nRetCode = 0;
@@ -300,7 +341,7 @@ int main()
             //}
             //int ret = pserver->Dealcommand();
             //TODO
-            int nCmd = 1;
+            int nCmd = 6;
             switch (nCmd)
             {
             case 1://查看磁盘分区
@@ -318,7 +359,8 @@ int main()
             case 5://鼠标操作
                 MouseEvent();
                 break;
-
+            case 6://屏幕
+                SendScreen();
             }
 
 

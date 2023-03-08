@@ -6,4 +6,4 @@
 CServerSocket* CServerSocket::m_instance = NULL; //显式的初始化
 CServerSocket::CHelper CServerSocket::m_helper;
 
-CServerSocket* pserver = CServe
+CServerSocket* pserver = CServerSocket::getInstance();
