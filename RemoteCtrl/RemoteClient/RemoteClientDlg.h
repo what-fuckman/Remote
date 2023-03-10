@@ -4,8 +4,8 @@
 
 #pragma once
 
-
 // CRemoteClientDlg 对话框
+#include"ClientSocket.h"
 class CRemoteClientDlg : public CDialogEx
 {
 // 构造
@@ -31,4 +31,6 @@ protected:
 	afx_msg void OnPaint();
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
+public:
+	afx_msg void OnBnClickedButtonTest();
 };

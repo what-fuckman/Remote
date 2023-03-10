@@ -1,12 +1,15 @@
-
 #pragma once
+
 #include"pch.h"
 #include"framework.h"
-
+#include<string>
+#include <vector>
 
 #pragma pack(push)
 #pragma pack(1)
 
+//#define  _WINSOCK_DEPRECATED_NO_WARNINGS
+//#pragma warning(suppress : 4996)
 class CPacket //包数据解析
 {
 public:
@@ -138,72 +141,60 @@ typedef struct MouseEvent
 	POINT ptXY;//坐标
 }MOUSEEVENT, * PMOUSEEVENT;
 
-class CServerSocket
+
+std::string GetErrInfo(int wsaErrCode);
+
+class CClientSocket
 {
 public:
-	static CServerSocket* getInstance() //静态函数 直接不声明就调用 例：CServerSocket::getInstance();
+	static CClientSocket* getInstance() //静态函数 直接不声明就调用 例：CServerSocket::getInstance();
 	{                                   //静态函数没有this指针，所以无法访问成员变量，但可以访问静态成员变量 ：static CServerSocket* m_instance;
 		if (m_instance == NULL)
 		{
-			m_instance = new  CServerSocket;
+			m_instance = new  CClientSocket;
 		}
 		return m_instance;
 	}
-	bool InitSocket()
+	bool InitSocket(const std::string& strIPAddress)
 	{
-
+		if (m_sock != INVALID_SOCKET); CloseSocket();
+		SOCKET m_sock = socket(PF_INET, SOCK_STREAM, 0);
 		if (m_sock == -1) return false;
 		sockaddr_in serv_adr;
 		memset(&serv_adr, 0, sizeof(serv_adr));
 		serv_adr.sin_family = AF_INET;
-		serv_adr.sin_addr.s_addr = INADDR_ANY;
+		serv_adr.sin_addr.s_addr = inet_addr(strIPAddress.c_str());
 		serv_adr.sin_port = htons(9527);
+		if (serv_adr.sin_addr.s_addr == INADDR_NONE)
+		{
+			AfxMessageBox("指定的IP地址不存在！！！");
+			return false;
+		}
 		//绑定
-		if (bind(m_sock, (sockaddr*)&serv_adr, sizeof(serv_adr)) == -1)
+		int ret = connect(m_sock, (sockaddr*)&serv_adr, sizeof(serv_adr));
+		if (ret == -1)
 		{
-			return false;
-		}
-		//监听
-		if (listen(m_sock, 1) == -1)
-		{
+			AfxMessageBox("连接失败");			
+		    TRACE("连接失败,%d %s\r\n", WSAGetLastError(), GetErrInfo(WSAGetLastError()).c_str());
 			return false;
 		}
 		return true;
-	}
-	bool AcceptClient()
-	{
-		TRACE("enter AcceptClient");
-		sockaddr_in  client_adr;
-		int cli_sz = sizeof(client_adr);
-		m_client = accept(m_sock, (sockaddr*)&client_adr, &cli_sz);
-		TRACE("m_client =%d\r\n", m_client);
-		if (m_client == -1)false;
-		return true;
-		//recv(client, buffer, sizeof(buffer), 0);
-		//send(client, buffer, sizeof(buffer), 0);
 	}
 #define BUFFER_SIZE 4096
 	int  Dealcommand()
 	{
-		if (m_client == -1)return -1;
+		if (m_sock == -1)return -1;
 		//char buffer[1024]=" ";
-		char* buffer = new char[BUFFER_SIZE];
-		if (buffer == NULL)
-		{
-			TRACE("内存不足\r\n");
-			return -2;
-		}
+		char* buffer =m_buffer.data();
 		memset(buffer, 0, BUFFER_SIZE);
 		size_t index = 0;
 		while (true)
 		{
-			size_t len = recv(m_client, buffer + index, BUFFER_SIZE - index, 0);
+			size_t len = recv(m_sock, buffer + index, BUFFER_SIZE - index, 0);
 			if (len <= 0)
 			{
-				delete[]buffer;
 				return -1;
 			}
-			TRACE("recv %d\r\n", len);
 			index += len;
 			len = index;
 			m_packet = CPacket((BYTE*)buffer, len);
@@ -211,22 +202,21 @@ public:
 			{
 				memmove(buffer, buffer + len, BUFFER_SIZE - len);
 				index -= len;
-				delete[]buffer;
 				return m_packet.sCmd;
 			}
 		}
-		delete[]buffer;
 		return-1;
 	}
 	bool Send(const char* pData, int nSize)
 	{
-		if (m_client == -1)return false;
-		return send(m_client, pData, nSize, 0) > 0;
+		TRACE("m_socket=%d\r\n",m_sock);
+		if (m_sock == -1)return false;
+		return send(m_sock, pData, nSize, 0) > 0;
 	}
 	bool Send(CPacket& pack)
 	{
-		if (m_client == -1)return false;
-		return send(m_client, pack.Data(), pack.Size(), 0) > 0;
+		if (m_sock == -1)return false;
+		return send(m_sock, pack.Data(), pack.Size(), 0) > 0;
 	}
 	bool GetFilePath(std::string& strPath)
 	{
@@ -252,36 +242,32 @@ public:
 	{
 		return m_packet;
 	}
-	void CloseClient()
+	void CloseSocket()
 	{
-		closesocket(m_client);
-		m_client=INVALID_SOCKET;
+		closesocket(m_sock);
+		m_sock = INVALID_SOCKET;
 	}
 private:
-	SOCKET m_client;
+	std::vector<char> m_buffer;
 	SOCKET m_sock;
 	CPacket m_packet;
-	CServerSocket& operator =(const CServerSocket&& ss)
+	CClientSocket& operator =(const CClientSocket&& ss){}
+	CClientSocket(const CClientSocket& ss)
 	{
-
-	}
-	CServerSocket(const CServerSocket& ss)
-	{
-		m_client = ss.m_client;
 		m_sock = ss.m_sock;
 	}
-	CServerSocket()
+	CClientSocket()
 	{
-		m_client = INVALID_SOCKET;//-1
+		//m_sock = INVALID_SOCKET;//-1
 
 		if (InitSoctEnv() == FALSE)
 		{
 			MessageBox(NULL, _T("无法初始化套接字环境,请检查网络设置"), _T("初始化错误："), MB_OK | MB_ICONERROR);
 			exit(0);
 		}
-		SOCKET m_sock = socket(PF_INET, SOCK_STREAM, 0);
+		m_buffer.resize(BUFFER_SIZE);
 	}
-	~CServerSocket()
+	~CClientSocket()
 	{
 		closesocket(m_sock);
 		WSACleanup();
@@ -299,26 +285,25 @@ private:
 	{
 		if (m_instance != NULL)
 		{
-			CServerSocket* tmp = m_instance;
+			CClientSocket* tmp = m_instance;
 			m_instance = NULL;
 			delete tmp;
 		}
 	}
-	static CServerSocket* m_instance;
+	static CClientSocket* m_instance;
 	//error LNK2001: 无法解析的外部符号 "private: static class CServerSocket * CServerSocket::m_instance"
 	class CHelper    //因为之前没有调用CServerSocket的析构函数
 	{
 	public:
 		CHelper()
 		{
-			CServerSocket::getInstance();
+			CClientSocket::getInstance();
 		}
 		~CHelper()
 		{
-			CServerSocket::releaseInstance();
+			CClientSocket::releaseInstance();
 		}
 	};
 	static CHelper m_helper;
 };
-extern CServerSocket server;//申明一个外部变量
-
+extern CClientSocket server;//申明一个外部变量
