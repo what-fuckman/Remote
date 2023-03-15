@@ -47,26 +47,13 @@ int MakeDriverInfo() //1=>A2=>B
 	CPacket pack(1, (BYTE*)result.c_str(), result.size());
 	Dump((BYTE*)pack.Data(), pack.Size());
 	//CServerSocket::getInstance()->Send(CPacket(1,(BYTE*) result. c_str(), result.size()));
+	CServerSocket::getInstance()->Send(pack);
 	return 0;
 }
 #include<stdio.h>
 #include<io.h>
 #include<list>
-typedef struct file_info
-{
-	file_info()
-	{
-		IsInvalid = FALSE;
-		IsDirectory = -1;
-		HasNext = TRUE;
-		memset(szFileName, 0, sizeof(szFileName));
-	}
-	BOOL IsInvalid;//是否有效
-	BOOL IsDirectory;//是否为目录 0是，1否
-	BOOL HasNext;//是否有后续 0 没有 1 有
-	char szFileName[256];//文件名
 
-}FILEINFO, * PFILEINFO;
 
 int MakeDirectoryInfo()
 {
@@ -80,10 +67,7 @@ int MakeDirectoryInfo()
 	if (_chdir(strPath.c_str()) != 0)
 	{
 		FILEINFO finfo;
-		finfo.IsInvalid = TRUE;
-		finfo.IsDirectory = TRUE;
 		finfo.HasNext = FALSE;
-		memcpy(finfo.szFileName, strPath.c_str(), strPath.size());
 		//   listFileInfos.push_back(finfo);
 		CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
 		CServerSocket::getInstance()->Send(pack);
@@ -95,6 +79,10 @@ int MakeDirectoryInfo()
 	if ((hfind = _findfirst("*", &fdata)) == 1)
 	{
 		OutputDebugString(_T("没有找到任何文件！"));
+		FILEINFO finfo;
+		finfo.HasNext = FALSE;
+		CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
+		CServerSocket::getInstance()->Send(pack);
 		return -3;
 	}
 	do
@@ -450,7 +438,7 @@ int main()
 			int count = 0;
 			if (pserver->InitSocket() == false)
 			{
-				MessageBox(NULL, _T("网络初始化失败，未能成功初始化，请检查网络状态"), _T("网络初始化失败"), MB_OK | MB_ICONERROR);
+				MessageBox(NULL, _T("网络初始化失败，未能成功初始化！！！，请检查网络状态"), _T("网络初始化失败"), MB_OK |MB_ICONERROR);
 				exit(0);
 			}
 			while (CServerSocket::getInstance() != NULL)

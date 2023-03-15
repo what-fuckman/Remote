@@ -52,6 +52,8 @@ END_MESSAGE_MAP()
 
 CRemoteClientDlg::CRemoteClientDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_REMOTECLIENT_DIALOG, pParent)
+	, m_server_address(0)
+	, m_nPort(_T(""))
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -59,6 +61,30 @@ CRemoteClientDlg::CRemoteClientDlg(CWnd* pParent /*=nullptr*/)
 void CRemoteClientDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
+	DDX_IPAddress(pDX, IDC_IPADDRESS_SERV, m_server_address);
+	DDX_Text(pDX, IDC_EDIT1, m_nPort);
+	DDX_Control(pDX, IDC_TREE_DIR, m_Tree);
+	DDX_Control(pDX, IDC_LIST_FILE, m_list);
+}
+
+int CRemoteClientDlg::SendCommandPack(int nCmd, bool bAutpClose,BYTE* pData, size_t nLength)
+{
+	UpdateData();
+	CClientSocket* pClient = CClientSocket::getInstance();
+	bool ret = pClient->InitSocket(m_server_address, atoi((LPCTSTR)m_nPort));//TODO返回值
+	if (!ret)
+	{
+		AfxMessageBox("网络初始化失败");
+		return -1;
+	}
+	CPacket pack(nCmd, pData, nLength);
+	ret = pClient->Send(pack);
+	TRACE("Send ret %s\r\n", ret);
+	int cmd = pClient->Dealcommand();
+	TRACE("ack:%d\r\n", cmd);
+	if(bAutpClose)
+	pClient->CloseSocket();
+	return cmd;
 }
 
 BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
@@ -66,6 +92,10 @@ BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
 	ON_BN_CLICKED(IDC_BUTTON_TEST, &CRemoteClientDlg::OnBnClickedButtonTest)
+	ON_BN_CLICKED(IDC_BTN_FILEINFO, &CRemoteClientDlg::OnBnClickedBtnFileinfo)
+	ON_NOTIFY(NM_DBLCLK, IDC_TREE_DIR, &CRemoteClientDlg::OnDblclkTreeDir)
+	ON_NOTIFY(NM_CLICK, IDC_TREE_DIR, &CRemoteClientDlg::OnClickTreeDir)
+	ON_NOTIFY(NM_RCLICK, IDC_LIST_FILE, &CRemoteClientDlg::OnRclickListFile)
 END_MESSAGE_MAP()
 
 
@@ -101,7 +131,10 @@ BOOL CRemoteClientDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
 
 	// TODO: 在此添加额外的初始化代码
-
+	UpdateData();
+	m_server_address = 0x7F000001;
+	m_nPort = _T("9527");
+	UpdateData(FALSE);
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
 
@@ -158,18 +191,141 @@ HCURSOR CRemoteClientDlg::OnQueryDragIcon()
 
 void CRemoteClientDlg::OnBnClickedButtonTest()
 {
-	CClientSocket* pClient = CClientSocket::getInstance();
-	bool ret= pClient->InitSocket("127.0.0.1");//TODO返回值
-	if (!ret)
+	//UpdateData();
+	//m_server_address;
+	//atoi((LPCTSTR)m_nPort);
+    
+	SendCommandPack(2024);
+}
+
+
+
+
+
+void CRemoteClientDlg::OnBnClickedBtnFileinfo()
+{
+	int ret= SendCommandPack(1);
+	if (ret == -1)
 	{
-		AfxMessageBox("网络初始化失败");
+		AfxMessageBox(_T("命令处理失败"));
 		return;
 	}
-	CPacket pack(2024,NULL,0);
-	ret=pClient->Send(pack);
-	TRACE("Send ret %s\r\n", ret);
-	int cmd= pClient->Dealcommand();
-	TRACE("ack:%d\r\n",cmd);
+	CClientSocket* pClient = CClientSocket::getInstance();
+	std::string drivers = pClient->GetPacket().strData;
+	std::string dr;
+	m_Tree.DeleteAllItems();
+	for (size_t i = 0; i < drivers.size();i++)
+	{
+		if (drivers[i] = ',')
+		{
+			dr += ":";
+			HTREEITEM hTemp= m_Tree.InsertItem(dr.c_str(),TVI_ROOT,TVI_LAST);
+			m_Tree.InsertItem(NULL, hTemp, TVI_LAST);
+			dr.clear();
+			continue;
+		}
+		dr += drivers[i];
+	}
+}
+
+void CRemoteClientDlg::LoadFileInfo()
+{
+	CPoint ptMouse;
+	GetCursorPos(&ptMouse);
+	m_Tree.ScreenToClient(&ptMouse);
+	HTREEITEM hTreeSelected = m_Tree.HitTest(ptMouse, 0);
+	if (hTreeSelected == NULL)
+		return;
+	if (m_Tree.GetChildItem(hTreeSelected) == NULL) return;
+	DeleteTreeChildrenItem(hTreeSelected);
+	m_list.DeleteAllItems();
+	CString strPath = GetPath(hTreeSelected);//避免不停双击
+	int nCmd = SendCommandPack(2, false, (BYTE*)(LPCTSTR)strPath.GetLength());
+	PFILEINFO pInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().strData.c_str();
+	CClientSocket* pClient = CClientSocket::getInstance();
+	while (pInfo->HasNext)
+	{
+		if (pInfo->IsDirectory)
+		{
+			if (CString(pInfo->szFileName) == "." || (CString(pInfo->szFileName) == ".."))
+			{
+				int cmd = pClient->Dealcommand();
+				TRACE("ack:%d\r\n", cmd);
+				if (cmd < 0) break;
+				pInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().strData.c_str();
+				continue;
+			}
+			HTREEITEM hTemp = m_Tree.InsertItem(pInfo->szFileName, hTreeSelected, TVI_LAST);//插入
+			m_Tree.InsertItem("", hTemp, TVI_LAST);
+		}
+		else 
+		{
+			m_list.InsertItem(0, pInfo->szFileName);
+		}
+		int cmd = pClient->Dealcommand();
+		TRACE("ack:%d\r\n", cmd);
+		if (cmd < 0) break;
+		pInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().strData.c_str();
+	}
 	pClient->CloseSocket();
+}
+
+CString CRemoteClientDlg::GetPath(HTREEITEM hTree)
+{
+	CString strRet, strTmp;
+	do {
+		strTmp = m_Tree.GetItemText(hTree);
+		strRet += strTmp + '\\' + strRet;
+		hTree = m_Tree.GetParentItem(hTree);
+	} while (hTree != NULL);
+	return strRet;
+}
+
+void CRemoteClientDlg::DeleteTreeChildrenItem(HTREEITEM hTree)
+{
+	HTREEITEM hSub = NULL;
+	do
+	{
+		hSub = m_Tree.GetChildItem(hTree);
+		if(hSub!=NULL) m_Tree.DeleteItem(hSub);
+	}while(hSub != NULL);
+	
+}
+
+void CRemoteClientDlg::OnDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult)
+{
 	// TODO: 在此添加控件通知处理程序代码
+	*pResult = 0;
+	LoadFileInfo();
+}
+
+
+void CRemoteClientDlg::OnClickTreeDir(NMHDR* pNMHDR, LRESULT* pResult)
+{
+	// TODO: 在此添加控件通知处理程序代码
+	*pResult = 0;
+	LoadFileInfo();
+}
+
+
+void CRemoteClientDlg::OnRclickListFile(NMHDR* pNMHDR, LRESULT* pResult)
+{
+	LPNMITEMACTIVATE pNMItemActivate = reinterpret_cast<LPNMITEMACTIVATE>(pNMHDR);
+	// TODO: 在此添加控件通知处理程序代码
+	*pResult = 0;
+	CPoint ptMouse,ptList;
+	GetCursorPos(&ptMouse);
+	ptList = ptMouse;
+	m_list.ScreenToClient(&ptList);
+	int ListSelected =m_list.HitTest(ptList);
+	if (ListSelected < 0)return;
+	CMenu menu;
+	menu. LoadMenu(IDR_MENU_RCLICK);//加载菜单资源
+    CMenu*pPuoup=	menu.GetSubMenu(0);//取子菜单
+	if (pPuoup != NULL)
+	{
+		pPuoup->TrackPopupMenu(TPM_LEFTALIGN|TPM_RIGHTBUTTON,ptMouse.x,ptMouse.y,this);//弹出子菜单
+
+	}
+
 }

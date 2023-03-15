@@ -10,6 +10,7 @@ class CRemoteClientDlg : public CDialogEx
 {
 // 构造
 public:
+	
 	CRemoteClientDlg(CWnd* pParent = nullptr);	// 标准构造函数
 
 // 对话框数据
@@ -20,7 +21,12 @@ public:
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
 
-
+private:
+	void LoadFileInfo();
+	CString GetPath(HTREEITEM hTree);
+	void DeleteTreeChildrenItem(HTREEITEM hTree);
+	//1.查看磁盘分区。。。。。。
+	int SendCommandPack(int nCmd,bool bAutoClose=true,BYTE*pData=NULL,size_t nLength=0);
 // 实现
 protected:
 	HICON m_hIcon;
@@ -33,4 +39,13 @@ protected:
 	DECLARE_MESSAGE_MAP()
 public:
 	afx_msg void OnBnClickedButtonTest();
+	DWORD m_server_address;
+	CString m_nPort;
+	afx_msg void OnBnClickedBtnFileinfo();
+	CTreeCtrl m_Tree;
+	afx_msg void OnDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg void OnClickTreeDir(NMHDR* pNMHDR, LRESULT* pResult);
+	// 显示文件
+	CListCtrl m_list;
+	afx_msg void OnRclickListFile(NMHDR* pNMHDR, LRESULT* pResult);
 };

@@ -141,30 +141,47 @@ typedef struct MouseEvent
 	POINT ptXY;//坐标
 }MOUSEEVENT, * PMOUSEEVENT;
 
+typedef struct file_info
+{
+	file_info()
+	{
+		IsInvalid = FALSE;
+		IsDirectory = -1;
+		HasNext = TRUE;
+		memset(szFileName, 0, sizeof(szFileName));
+	}
+	BOOL IsInvalid;//是否有效
+	BOOL IsDirectory;//是否为目录 0是，1否
+	BOOL HasNext;//是否有后续 0 没有 1 有
+	char szFileName[256];//文件名
 
+}FILEINFO, * PFILEINFO;
 std::string GetErrInfo(int wsaErrCode);
 
 class CClientSocket
 {
 public:
-	static CClientSocket* getInstance() //静态函数 直接不声明就调用 例：CServerSocket::getInstance();
-	{                                   //静态函数没有this指针，所以无法访问成员变量，但可以访问静态成员变量 ：static CServerSocket* m_instance;
+	static CClientSocket* getInstance() 
+		//静态函数 直接不声明就调用 例：    CServerSocket::getInstance();
+	{                                   
+		//静态函数没有this指针，所以无法访问成员变量，但可以访问静态成员变量 ：
+		//static CServerSocket* m_instance;
 		if (m_instance == NULL)
 		{
 			m_instance = new  CClientSocket;
 		}
 		return m_instance;
 	}
-	bool InitSocket(const std::string& strIPAddress)
+	bool InitSocket(int nIP,int nPort )
 	{
-		if (m_sock != INVALID_SOCKET); CloseSocket();
+		if (m_sock != INVALID_SOCKET) CloseSocket();
 		SOCKET m_sock = socket(PF_INET, SOCK_STREAM, 0);
 		if (m_sock == -1) return false;
 		sockaddr_in serv_adr;
 		memset(&serv_adr, 0, sizeof(serv_adr));
 		serv_adr.sin_family = AF_INET;
-		serv_adr.sin_addr.s_addr = inet_addr(strIPAddress.c_str());
-		serv_adr.sin_port = htons(9527);
+		serv_adr.sin_addr.s_addr =htonl(nIP);
+		serv_adr.sin_port = htons(nPort);
 		if (serv_adr.sin_addr.s_addr == INADDR_NONE)
 		{
 			AfxMessageBox("指定的IP地址不存在！！！");

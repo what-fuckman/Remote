@@ -2,7 +2,7 @@
 #pragma once
 #include"pch.h"
 #include"framework.h"
-
+void Dump(BYTE* Data, size_t nSize);
 
 #pragma pack(push)
 #pragma pack(1)
@@ -138,11 +138,27 @@ typedef struct MouseEvent
 	POINT ptXY;//坐标
 }MOUSEEVENT, * PMOUSEEVENT;
 
+typedef struct file_info
+{
+	file_info()
+	{
+		IsInvalid = FALSE;
+		IsDirectory = -1;
+		HasNext = TRUE;
+		memset(szFileName, 0, sizeof(szFileName));
+	}
+	BOOL IsInvalid;//是否有效
+	BOOL IsDirectory;//是否为目录 0是，1否
+	BOOL HasNext;//是否有后续 0 没有 1 有
+	char szFileName[256];//文件名
+
+}FILEINFO, * PFILEINFO;
+
 class CServerSocket
 {
 public:
 	static CServerSocket* getInstance() //静态函数 直接不声明就调用 例：CServerSocket::getInstance();
-	{                                   //静态函数没有this指针，所以无法访问成员变量，但可以访问静态成员变量 ：static CServerSocket* m_instance;
+	{                                   //静态函数没有this指针，所以无法访问成员变量，但可以访问静态成员变量 ：static CServerSocket*m_instance;
 		if (m_instance == NULL)
 		{
 			m_instance = new  CServerSocket;
@@ -151,7 +167,7 @@ public:
 	}
 	bool InitSocket()
 	{
-
+		TRACE("InitSocket ");
 		if (m_sock == -1) return false;
 		sockaddr_in serv_adr;
 		memset(&serv_adr, 0, sizeof(serv_adr));
@@ -226,6 +242,7 @@ public:
 	bool Send(CPacket& pack)
 	{
 		if (m_client == -1)return false;
+		Dump((BYTE*)pack.Data(), pack.Size());
 		return send(m_client, pack.Data(), pack.Size(), 0) > 0;
 	}
 	bool GetFilePath(std::string& strPath)
