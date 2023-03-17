@@ -48,4 +48,8 @@ public:
 	// 显示文件
 	CListCtrl m_list;
 	afx_msg void OnRclickListFile(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg
+		void OnDeleteFile();
+	void OnRunFile();
+	void OnDownloadFile();
 };
