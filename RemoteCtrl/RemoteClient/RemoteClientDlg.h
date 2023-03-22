@@ -6,6 +6,7 @@
 
 // CRemoteClientDlg 对话框
 #include"ClientSocket.h"
+#include "StatusDlg.h"
 class CRemoteClientDlg : public CDialogEx
 {
 // 构造
@@ -24,6 +25,9 @@ public:
 	
 
 private:
+	static void threadEntryForMownFile(void *arg);
+	void threadDownFile();
+	void LoadFileCurrent();
 	void LoadFileInfo();
 	CString GetPath(HTREEITEM hTree);
 	void DeleteTreeChildrenItem(HTREEITEM hTree);
@@ -32,7 +36,7 @@ private:
 // 实现
 protected:
 	HICON m_hIcon;
-
+	CStatusDlg m_dlgStatus;
 	// 生成的消息映射函数
 	virtual BOOL OnInitDialog();
 	afx_msg void OnSysCommand(UINT nID, LPARAM lParam);
