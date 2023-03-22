@@ -197,6 +197,8 @@ public:
 		}
 		return true;
 	}
+	void Dump(BYTE* Data, size_t nSize);
+
 #define BUFFER_SIZE 4096
 	int  Dealcommand()
 	{
@@ -212,6 +214,7 @@ public:
 			{
 				return -1;
 			}
+			Dump((BYTE*)buffer, len);
 			index += len;
 			len = index;
 			m_packet = CPacket((BYTE*)buffer, len);

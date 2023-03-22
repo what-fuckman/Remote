@@ -21,12 +21,14 @@ public:
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
 
+	
+
 private:
 	void LoadFileInfo();
 	CString GetPath(HTREEITEM hTree);
 	void DeleteTreeChildrenItem(HTREEITEM hTree);
 	//1.查看磁盘分区。。。。。。
-	int SendCommandPack(int nCmd,bool bAutoClose=true,BYTE*pData=NULL,size_t nLength=0);
+	int SendCommandPacked(int nCmd,bool bAutoClose=true,BYTE*pData=NULL,size_t nLength=0);
 // 实现
 protected:
 	HICON m_hIcon;
