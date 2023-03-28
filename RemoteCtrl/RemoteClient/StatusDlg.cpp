@@ -24,6 +24,7 @@ CStatusDlg::~CStatusDlg()
 void CStatusDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialog::DoDataExchange(pDX);
+	DDX_Control(pDX, IDC_EDIT_INFO, m_info);
 }
 
 
